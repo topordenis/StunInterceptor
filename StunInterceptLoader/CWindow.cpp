@@ -1,7 +1,12 @@
+#include <Windows.h>
+#include <memory>
+#include <d3d11.h>
+
 #include "CWindow.h"
-#include "ImGui/imgui_impl_dx11.h"
-#include "ImGui/imgui_impl_win32.h"
+#include "../Shared/ImGui/imgui_impl_dx11.h"
+#include "../Shared/ImGui/imgui_impl_win32.h"
 #include <iostream>
+#include "CGui.h"
 extern IMGUI_IMPL_API LRESULT ImGui_ImplWin32_WndProcHandler(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam);
 
 LRESULT WINAPI WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
@@ -38,50 +43,17 @@ int center_window(HWND parent_window, int width, int height, LPRECT rect)
 }
 
 bool CWindow::RegisterWindowClass() {
-    HWND telegramWindow = nullptr;
-    for (HWND hwnd = GetTopWindow(NULL); hwnd != NULL; hwnd = GetNextWindow(hwnd, GW_HWNDNEXT))
-    {
-        DWORD dwProcessId = 0x0;
-        // Query process ID for hWnd
-        GetWindowThreadProcessId(hwnd, &dwProcessId);
-        if (dwProcessId != GetCurrentProcessId())
-            continue;
 
-        if (!IsWindowVisible(hwnd))
-            continue;
-
-        int length = GetWindowTextLength(hwnd);
-        if (length == 0)
-            continue;
-
-        char* title = new char[length + 1];
-        GetWindowText(hwnd, title, length + 1);
-
-        TCHAR cName[MAX_PATH];
-        GetClassName(hwnd, cName, _countof(cName));
-
-        if (std::string(cName).compare("Qt5159QWindowIcon"))
-            continue;
-
-        if (std::string(title).find("Telegram") == std::string::npos)
-            continue;
-
-        std::cout << "HWND: " << hwnd << " Title: " << title << std::endl;
-        telegramWindow = hwnd;
-    }
-    //Qt5159QWindowIcon, 0x5b08e4, Telegram, Telegram.exe (18804): 2024
-
-     /*   SetWindowLongPtr(windowHwnd, GWLP_HWNDPARENT, (LONG_PTR)telegramWindow);*/
     RECT rect;
 
-    int width = 600; int height = 300;
+    int width = 300; int height = 150;
 
 
     WNDCLASSEXW wc = { sizeof(wc), CS_CLASSDC, WndProc, 0L, 0L, GetModuleHandle(nullptr), nullptr, nullptr, nullptr, nullptr, L"ImGui Example", nullptr };
     ::RegisterClassExW(&wc);
 
     RECT parentRect;
-    GetWindowRect(telegramWindow != nullptr ? telegramWindow : GetDesktopWindow(), &parentRect);
+    GetWindowRect(GetDesktopWindow(), &parentRect);
 
     auto parentWidth = abs(parentRect.right - parentRect.left);
     auto parentHeight = abs(parentRect.bottom - parentRect.top);
@@ -89,7 +61,7 @@ bool CWindow::RegisterWindowClass() {
     parentRect.left += parentWidth / 2 - width / 2;
     parentRect.top += parentHeight / 2 - height / 2;
 
-    windowHwnd = ::CreateWindowW(wc.lpszClassName, L"WebSec - Telegram Intercept", WS_POPUPWINDOW, parentRect.left, parentRect.top, width, height, telegramWindow, nullptr, wc.hInstance, nullptr);
+    windowHwnd = ::CreateWindowW(wc.lpszClassName, L"WebSec - Intercept Loader", WS_POPUPWINDOW, parentRect.left, parentRect.top, width, height, nullptr, nullptr, wc.hInstance, nullptr);
     if (windowHwnd) {
         SetWindowLong(windowHwnd, GWL_EXSTYLE,
             GetWindowLong(windowHwnd, GWL_EXSTYLE) & ~WS_EX_APPWINDOW & ~WS_EX_TOOLWINDOW);
@@ -97,7 +69,7 @@ bool CWindow::RegisterWindowClass() {
         return true;
     }
 
-
+    return true;
 }
 bool CWindow::CreateDeviceD3D()
 {
@@ -166,7 +138,7 @@ bool CWindow::Initialize() {
         return false;
     }
     // Show the window
-    ::ShowWindow(windowHwnd, SW_HIDE);
+    ::ShowWindow(windowHwnd, SW_SHOW);
     ::UpdateWindow(windowHwnd);
 
     // Setup Dear ImGui context
@@ -184,7 +156,7 @@ bool CWindow::Initialize() {
     ImGui_ImplWin32_Init(windowHwnd);
     ImGui_ImplDX11_Init(g_pd3dDevice, g_pd3dDeviceContext);
 
-    mGui.InitStyle();
+    mGui->InitStyle();
     return true;
 }
 
@@ -199,46 +171,6 @@ void CWindow::RunPool() {
         GetWindowLong(windowHwnd, GWL_EXSTYLE) & ~WS_EX_APPWINDOW & ~WS_EX_TOOLWINDOW);
     while (m_bRunning)
     {
-        static bool bDown = false;
-        static bool bClicked = false;
-        static bool bPrevMenuState = m_bVisible;
-
-        if ((GetAsyncKeyState(VK_INSERT) & 0x8000))
-        {
-            bClicked = false;
-            bDown = true;
-        }
-        else if (!(GetAsyncKeyState(VK_INSERT) & 0x8000) && bDown)
-        {
-            bClicked = true;
-            bDown = false;
-        }
-        else
-        {
-            bClicked = false;
-            bDown = false;
-        }
-
-        if (bClicked)
-        {
-            m_bVisible = !m_bVisible;
-            ShowWindow(windowHwnd, m_bVisible ? SW_SHOW : SW_HIDE);
-        }
-
-
-
-        if (m_bVisible) {
-            auto parentWindow = GetParent(windowHwnd);
-            if (parentWindow != nullptr) {
-                // std::cout << "Is parent visible " << (IsWindowVisible(parentWindow) ? "DA" : "NU") << std::endl;
-                if (m_bStickToPraentUpdate != (bool)IsWindowVisible(parentWindow)) {
-
-                    ShowWindow(windowHwnd, m_bStickToPraentUpdate ? SW_HIDE : SW_SHOW);
-                }
-
-                m_bStickToPraentUpdate = (bool)IsWindowVisible(parentWindow);
-            }
-        }
 
         // Poll and handle messages (inputs, window resize, etc.)
         // See the WndProc() function below for our to dispatch events to the Win32 backend.
@@ -270,8 +202,8 @@ void CWindow::RunPool() {
         ImGui::NewFrame();
 
         Draggable();
-        mGui.mWindow = windowHwnd;
-        mGui.Render();
+      //  mGui->mWindow = windowHwnd;
+        mGui->Render();
 
 
         ImGui::Render();
@@ -291,7 +223,7 @@ void CWindow::RunPool() {
 
     }
 
-    mGui.Shutdown();
+    mGui->Shutdown();
 }
 void CWindow::Draggable() {
 
@@ -320,8 +252,10 @@ void CWindow::Draggable() {
 
     }
 }
+
 CWindow::CWindow()
 {
+    mGui = std::make_shared<CGui>();
 }
 
 CWindow::~CWindow()

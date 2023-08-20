@@ -1,8 +1,15 @@
 #pragma once
 
-#include "CGui.h"
+
+class CSharedComm;
+class CStunChecker;
+class CStunIntercept;
+class CGui;
+
 class CWindow
 {
+public:
+
 private:
 	bool RegisterWindowClass();
 	bool CreateDeviceD3D();
@@ -16,7 +23,10 @@ private:
 	ID3D11RenderTargetView* g_mainRenderTargetView = nullptr;
 	HWND windowHwnd = 0;
 private:
-	CGui mGui;
+	std::shared_ptr<CGui> mGui;
+	std::shared_ptr<CSharedComm> mSharedComm;
+	std::shared_ptr<CStunChecker> mStunChecker;
+	std::shared_ptr<CStunIntercept> mStunIntercept;
 public:
 	inline static UINT g_ResizeWidth = 0;
 	inline static UINT g_ResizeHeight = 0;
@@ -30,7 +40,8 @@ public:
 	RECT m_InitialRect;
 	RECT m_RelativeRect;
 	void CheckForResize();
-	CWindow();
+	CWindow(std::shared_ptr<CSharedComm> _sharedComm, std::shared_ptr<CStunChecker> _stunChecker, std::shared_ptr<CStunIntercept> _stunIntercept);
+
 	~CWindow();
 };
 

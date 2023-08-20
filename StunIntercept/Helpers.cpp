@@ -2,6 +2,50 @@
 #include "Helpers.h"
 #include <vector>
 namespace Helpers {
+	std::string GetCurrentProcessName()
+	{
+		std::string ret;
+		HANDLE handle = GetCurrentProcess();
+		if (handle)
+		{
+			DWORD buffSize = 1024;
+			CHAR buffer[1024];
+			if (QueryFullProcessImageNameA(handle, 0, buffer, &buffSize))
+			{
+				ret = buffer;
+			}
+			else
+			{
+				printf("Error GetModuleBaseNameA : %lu", GetLastError());
+			}
+			CloseHandle(handle);
+		}
+		return ret;
+	}
+	std::string GetProcessName(DWORD processId)
+	{
+		std::string ret;
+		HANDLE handle = OpenProcess(
+			PROCESS_QUERY_LIMITED_INFORMATION,
+			FALSE,
+			processId /* This is the PID, you can find one from windows task manager */
+		);
+		if (handle)
+		{
+			DWORD buffSize = 1024;
+			CHAR buffer[1024];
+			if (QueryFullProcessImageNameA(handle, 0, buffer, &buffSize))
+			{
+				ret = buffer;
+			}
+			else
+			{
+				printf("Error GetModuleBaseNameA : %lu", GetLastError());
+			}
+			CloseHandle(handle);
+		}
+		return ret;
+	}
 	std::uintptr_t PatternScan(const std::uintptr_t address, const char* signature, const bool relative) {
 		static auto pattern_to_byte = [](const char* pattern) {
 			auto bytes = std::vector<int>{};

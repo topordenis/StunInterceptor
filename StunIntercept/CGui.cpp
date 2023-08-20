@@ -1,11 +1,24 @@
-#include "CStunIntercept.h"
+
+#include <iostream>
+#include <memory>
+#include <Windows.h>
 #include "CGui.h"
 
-#include "imgui_memory_editor.h"
-CGui::CGui() {
-    intercept = std::make_shared<CStunIntercept>();
+#include "CStunIntercept.h"
+#include "CSharedComm.h"
+#include "CStunChecker.h"
+#include "../Shared/ImGui/imgui.h"
+#include "../Shared/ImGui/imgui_impl_win32.h"
+#include "../Shared/ImGui/imgui_impl_dx11.h"
+#include <d3d11.h>
+#include <tchar.h>
+#include <vector>
+#include <mutex>
 
-}
+#include "imgui_memory_editor.h"
+#include <format>
+#include <chrono>
+
 void CGui::Render() {
 
     static int page = 0;
@@ -113,13 +126,12 @@ void CGui::DrawInterceptor()
     if (!Intercepting) {
         if (ImGui::Button("Start intercepting")) {
             Intercepting = true;
-            intercept->Start();
+
         }
     }
     else {
         if (ImGui::Button("Stop intercepting")) {
             Intercepting = false;
-            intercept->Stop();
         }
     }
 
@@ -127,7 +139,7 @@ void CGui::DrawInterceptor()
         ImGui::Text("Connections list");
         if (ImGui::Button("Clear"))
         {
-            intercept->Clear();
+            mStunIntercept->Clear();
         }
         ImGui::SameLine();
 
@@ -143,11 +155,11 @@ void CGui::DrawInterceptor()
             ImGui::Text("Port");
 
             {
-                std::lock_guard<std::recursive_mutex> lock(intercept->m_Mutex);
+                std::lock_guard<std::recursive_mutex> lock(mStunIntercept->m_Mutex);
 
-                for (int i = 0; i < intercept->_results.size(); i++)
+                for (int i = 0; i < mStunIntercept->_results.size(); i++)
                 {
-                    auto& result = intercept->_results.at(i);
+                    auto& result = mStunIntercept->_results.at(i);
                     ImGui::TableNextRow();
                     ImGui::TableNextColumn();
                     ImGui::Text("%d", i);
@@ -163,12 +175,28 @@ void CGui::DrawInterceptor()
 }
 
 void CGui::Shutdown() {
-    intercept->Stop();
+   // intercept->Stop();
 }
 void CGui::DrawAbout()
 {
-    ImGui::Text("All credits reserved to 2020-2023 WebSec B.V.");
+    static const auto now = std::chrono::system_clock::now();
+    static auto year_disc = std::format("All credits reserved to 2020-{:%Y} WebSec B.V.", now);
+
+    ImGui::TextWrapped("DISCLAIMER:");
+    ImGui::TextWrapped("While our intetion is to bolster cybersecurity we strongly advocate for the ethical use of such tools. The aim is to unmask malicious actors who misuse platforms like Telegram or Signal, therefore ensuring a safer-digital landscape for all.");
+    ImGui::Spacing();
+    ImGui::TextWrapped("We strongly condone the use of this software for malicious purposes such as doxing.");
+    ImGui::Spacing();
+    ImGui::TextWrapped("By using this software you agree that you are aware of your own actions and potential consequences!");
+    ImGui::Spacing();
+    ImGui::TextWrapped(year_disc.c_str());
+
     ImGui::TextColored(ImColor(200, 155, 0, 255), "https://websec.nl");
+
+}
+
+CGui::CGui(std::shared_ptr<CSharedComm> _sharedComm, std::shared_ptr<CStunChecker> _stunChecker, std::shared_ptr<CStunIntercept> _stunIntercept) : mSharedComm(_sharedComm), mStunChecker(_stunChecker), mStunIntercept(_stunIntercept)
+{
 }
 
 

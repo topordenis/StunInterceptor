@@ -1,25 +1,36 @@
+
 #include "CInjector.h"
-bool CInjector::Inject(const char* procName, const char* dllName)
+
+CInjectResult CInjector::Inject(const char* procName, const char* dllName)
 {
 	// Get the process id from the process name
-	DWORD processID = GetTargetThreadIDFromProcName(procName);
+	auto processsIdList = GetTargetThreadIDFromProcName(procName);
 
-	return Inject(processID, dllName);
+	if (!processsIdList.has_value() || processsIdList.value().empty())
+		return {"Process is not running", false};
+
+	CInjectResult res;
+	if (processsIdList != std::nullopt) {
+		for (auto& id : processsIdList.value())
+		{
+			res = Inject(id, dllName);
+			if (!res.status) break;
+		}
+	}
+	res.msg.insert(0, res.status ? "[+] " : "[-]");
+	return res;
 }
-bool CInjector::Inject(DWORD processID, const char* relativeDllName) {
+CInjectResult CInjector::Inject(DWORD processID, const char* relativeDllName) {
 
 	if (processID == 0)
 	{
-		return false; // tlhelp was unable to find the process name
+		return { "Unable to find process id.", false };
 	}
 
 	HANDLE Proc = OpenProcess(PROCESS_ALL_ACCESS, FALSE, processID);
 	if (Proc == 0)
 	{
-		// this process id clearly isnt valid or is 0 - bail!
-		// this can also happen if we dont have the privileges required to access this process
-		std::cout << "[!] OpenProcess() failed: " << GetLastError() << std::endl;
-		return false;
+		return { "OpenProcess() failed. We dont have the privileges required to access this process.", false };
 	}
 	std::cout << "[+] Telegram Process Found" << std::endl;
 	char DllName[MAX_PATH];
@@ -40,16 +51,19 @@ bool CInjector::Inject(DWORD processID, const char* relativeDllName) {
 	CreateRemoteThread(Proc, NULL, NULL, (LPTHREAD_START_ROUTINE)LoadLib, (LPVOID)RemoteString, NULL, NULL);
 
 	CloseHandle(Proc);
-	return true;
+	return { "Succesfully injected.", true };
 }
-DWORD CInjector::GetTargetThreadIDFromProcName(const char* ProcName) {
+std::optional<std::vector<DWORD>> CInjector::GetTargetThreadIDFromProcName(const char* ProcName) {
+
+	std::vector<DWORD> list;
+
 	// create a handle to the toolhelp32 library
 	HANDLE thSnapShot = CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0);
 	if (thSnapShot == INVALID_HANDLE_VALUE)
 	{
 		//MessageBox(NULL, "Error: Unable to create toolhelp snapshot!", "2MLoader", MB_OK);
 		std::cout << "[!] Error: Unable to create toolhelp snapshot!" << std::endl;
-		return 0;
+		return std::nullopt;
 	}
 
 	PROCESSENTRY32 pe;
@@ -60,22 +74,20 @@ DWORD CInjector::GetTargetThreadIDFromProcName(const char* ProcName) {
 	while (retval)
 	{
 		if (!strcmp(pe.szExeFile, ProcName))
-		{
-			// names match
-			// close the handle and return the process id
-			CloseHandle(thSnapShot);
-			return pe.th32ProcessID;
-		}
+			list.push_back(pe.th32ProcessID);
+		
 		retval = Process32Next(thSnapShot, &pe);
 	}
+	
+	CloseHandle(thSnapShot);
 
 	// unable to find the process
 	// close the handle and return 0 signalling that we were unable to find the process id
 
-	std::cout << "[-] " << ProcName << " Not Found" << std::endl;
-	std::cout << "[!] Please open " << ProcName << " process first." << std::endl;
+	if (list.empty()) {
+		std::cout << "[-] " << ProcName << " Not Found" << std::endl;
+		std::cout << "[!] Please open " << ProcName << " process first." << std::endl;
+	}
 
-	CloseHandle(thSnapShot);
-
-	return 0;
+	return list;
 }

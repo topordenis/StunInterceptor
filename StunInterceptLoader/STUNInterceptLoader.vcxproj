@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="utf-8"?>
+﻿<?xml version="1.0" encoding="utf-8"?>
 <Project DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <ItemGroup Label="ProjectConfigurations">
     <ProjectConfiguration Include="Debug|Win32">
@@ -24,6 +24,7 @@
     <ProjectGuid>{7e25148c-6126-486d-a6b8-15df3bde9b7f}</ProjectGuid>
     <RootNamespace>TelegramInterceptLoader</RootNamespace>
     <WindowsTargetPlatformVersion>10.0</WindowsTargetPlatformVersion>
+    <ProjectName>STUNInterceptLoader</ProjectName>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'" Label="Configuration">
@@ -110,10 +111,12 @@
       <SDLCheck>true</SDLCheck>
       <PreprocessorDefinitions>_DEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
+      <LanguageStandard>stdcpp20</LanguageStandard>
     </ClCompile>
     <Link>
-      <SubSystem>Console</SubSystem>
+      <SubSystem>Windows</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
+      <AdditionalDependencies>d3d11.lib;$(CoreLibraryDependencies);%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
@@ -124,20 +127,43 @@
       <SDLCheck>true</SDLCheck>
       <PreprocessorDefinitions>NDEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
+      <LanguageStandard>stdcpp20</LanguageStandard>
     </ClCompile>
     <Link>
-      <SubSystem>Console</SubSystem>
+      <SubSystem>Windows</SubSystem>
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
       <OptimizeReferences>true</OptimizeReferences>
       <GenerateDebugInformation>true</GenerateDebugInformation>
+      <AdditionalDependencies>d3d11.lib;$(CoreLibraryDependencies);%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="..\Shared\ImGui\imgui.cpp" />
+    <ClCompile Include="..\Shared\ImGui\imgui_demo.cpp" />
+    <ClCompile Include="..\Shared\ImGui\imgui_draw.cpp" />
+    <ClCompile Include="..\Shared\ImGui\imgui_impl_dx11.cpp" />
+    <ClCompile Include="..\Shared\ImGui\imgui_impl_win32.cpp" />
+    <ClCompile Include="..\Shared\ImGui\imgui_tables.cpp" />
+    <ClCompile Include="..\Shared\ImGui\imgui_widgets.cpp" />
+    <ClCompile Include="CGui.cpp" />
     <ClCompile Include="CInjector.cpp" />
-    <ClCompile Include="TelegramInterceptLoader.cpp" />
+    <ClCompile Include="CLoader.cpp" />
+    <ClCompile Include="CWindow.cpp" />
+    <ClCompile Include="InterceptorLoader.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="..\Shared\ImGui\imconfig.h" />
+    <ClInclude Include="..\Shared\ImGui\imgui.h" />
+    <ClInclude Include="..\Shared\ImGui\imgui_impl_dx11.h" />
+    <ClInclude Include="..\Shared\ImGui\imgui_impl_win32.h" />
+    <ClInclude Include="..\Shared\ImGui\imgui_internal.h" />
+    <ClInclude Include="..\Shared\ImGui\imstb_rectpack.h" />
+    <ClInclude Include="..\Shared\ImGui\imstb_textedit.h" />
+    <ClInclude Include="..\Shared\ImGui\imstb_truetype.h" />
+    <ClInclude Include="CGui.h" />
     <ClInclude Include="CInjector.h" />
+    <ClInclude Include="CLoader.h" />
+    <ClInclude Include="CWindow.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

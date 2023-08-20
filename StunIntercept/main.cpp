@@ -3,14 +3,18 @@
 
 #include <iostream>
 #include "CApp.h"
+#include <Windows.h>
+
 
 int main()
 {
     CApp app;
     app.Run();
 }
-unsigned long WINAPI initialize(void* instance) {
-	main();
+unsigned long  initialize(void* instance) {
+	std::cout << "create initalized \n";
+	CApp app;
+	app.Run();
 	FreeLibraryAndExitThread(static_cast<HMODULE>(instance), 0);
 	return 0;
 }

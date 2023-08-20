@@ -10,17 +10,16 @@ public:
 	std::string Port;
 };
 
-
-class CRevTelegram
-{
-public:
-	char* dataOfInterest; //0x0000
-	char pad_0008[112]; //0x0008
-}; //Size: 0x0078
+class CStunChecker;
+class CSharedComm;
 class CStunIntercept
 {
+private:
+	std::shared_ptr<CStunChecker> m_StunChecker;
+	std::shared_ptr< CSharedComm> m_instComm;
 public:
-
+	CStunIntercept() {};
+	CStunIntercept(std::shared_ptr<CStunChecker> stunChecker, std::shared_ptr<CSharedComm> sharedCom);
 	void Start();
 	void Stop();
 	void Clear();
@@ -29,6 +28,8 @@ public:
 	static CStunIntercept& Get() {
 		return *_instance;
 	}
+public:
+	void ReceiveMessage(std::string msg);
 public:
 	std::vector<CInterceptResult> _results;
 	std::recursive_mutex m_Mutex;
@@ -39,8 +40,13 @@ private:
 	std::vector<std::string> m_Cached;
 	std::string m_CurrentPeerPort;
 	std::string m_CurrentPeerIp;
+	bool m_bIsRelayed{ false };
+	std::string m_RelayIp{};
+
 	bool m_WaitingForCreatePermission{ false };
 public:
 	void TryReadStunBuffer(char* buf, int len);
+private:
+	void AddToResults(std::string ip, std::string port);
 };
 

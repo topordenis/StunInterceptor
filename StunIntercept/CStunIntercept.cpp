@@ -1,6 +1,6 @@
 #include <WS2tcpip.h>
 #include "CStunIntercept.h"
-
+#include "CStunChecker.h"
 #include "Minhook/MinHook.h"
 #include "Helpers.h"
 #include <functional>
@@ -8,6 +8,10 @@
 #include <ws2ipdef.h>
 
 #include <algorithm>
+#include "CSharedComm.h"
+#include "CNamedPipeClient.h"
+#include "CNamedPipeServer.h"
+#include "CNamedPipe.h"
 
 // get sockaddr, IPv4 or IPv6:
 void* get_in_addr(struct sockaddr* sa)
@@ -48,6 +52,11 @@ USHORT get_in_port(struct sockaddr* sa)
 void CStunIntercept::TryReadStunBuffer(char* buf, int len) {
 	stun::message msg;
 
+
+
+	static bool bIsWebrtc = Helpers::GetCurrentProcessName().find("Telegram") == std::string::npos;
+
+	std::cout << "bIsWebrtc " << bIsWebrtc << std::endl;
 	// Allocate a 2k memory block
 	msg.resize(2 * 1024);
 
@@ -84,11 +93,13 @@ void CStunIntercept::TryReadStunBuffer(char* buf, int len) {
 		case type::xor_relayed_address:
 		{
 			sockaddr address;
-			if (i->to<type::xor_peer_address>().to_sockaddr(&address)) {
+			if (i->to<type::xor_relayed_address>().to_sockaddr(&address)) {
 				inet_ntop(address.sa_family, get_in_addr((struct sockaddr*)&address), s, sizeof s);
 				std::string str(s);
 
+				m_RelayIp = str;
 
+				std::cout << "got relayed ip " << str << std::endl;
 				auto itx = std::find(m_Origins.begin(), m_Origins.end(), str);
 				if (itx == m_Origins.end())
 					m_Origins.push_back(str);
@@ -114,10 +125,25 @@ void CStunIntercept::TryReadStunBuffer(char* buf, int len) {
 
 			inet_ntop(address.sa_family, get_in_addr((struct sockaddr*)&address), s, sizeof s);
 			std::string str(s);
-
 			
+		
+			auto prt = get_in_port((struct sockaddr*)&address);
+			
+			{
 
+			//	m_StunChecker->Enqueue(std::make_shared< sockaddr>(address));
+			}
+			if (bIsWebrtc && msg.type() == stun::message::type::channel_bind_request) {
+				AddToResults(str, std::to_string(prt));
+			}
+			
+			
 			if (msg.type() == stun::message::type::create_perm_request) {
+				std::cout << "m_RelayIp " << m_RelayIp << std::endl;
+				std::cout << "xor ip " << str << std::endl;
+			}
+
+			if (!bIsWebrtc && msg.type() == stun::message::type::create_perm_request) {
 				m_WaitingForCreatePermission = true;
 				auto prt = get_in_port((struct sockaddr*)&address);
 				m_CurrentPeerIp = str;
@@ -130,15 +156,9 @@ void CStunIntercept::TryReadStunBuffer(char* buf, int len) {
 		// etc...
 		}
 	}
-	if (msg.type() == stun::message::create_perm_response) {
+	if (!bIsWebrtc && msg.type() == stun::message::create_perm_response) {
 		m_WaitingForCreatePermission = false;
-		auto itx = std::find(m_Origins.begin(), m_Origins.end(), m_CurrentPeerIp);
-		if (itx == m_Origins.end() && m_CurrentPeerIp.size() > 0)
-		{
-			auto itx2 = std::find_if(_results.begin(), _results.end(), [this](CInterceptResult& result) {return result.Ip == m_CurrentPeerIp; });
-			if (itx2 == _results.end())
-				_results.push_back({ m_CurrentPeerIp, m_CurrentPeerPort });
-		}
+		AddToResults(m_CurrentPeerIp, m_CurrentPeerPort);
 	}
 	 else if (msg.type() == stun::message::create_perm_error_response) {
 		m_WaitingForCreatePermission = false;
@@ -146,6 +166,30 @@ void CStunIntercept::TryReadStunBuffer(char* buf, int len) {
 		 m_CurrentPeerIp = "";
 	 }
 }
+
+void CStunIntercept::AddToResults(std::string ip, std::string port)
+{
+	auto itx = std::find(m_Origins.begin(), m_Origins.end(), m_CurrentPeerIp);
+	if (itx == m_Origins.end() && ip.size() > 0)
+	{
+
+		if (m_instComm != nullptr && m_instComm->namedPipe != nullptr) {
+			if (m_instComm->m_bServer) {
+				auto itx = std::find_if(_results.begin(), _results.end(), [ip, port](CInterceptResult& res) { return res.Ip == ip && res.Port == port; });
+				if (itx == _results.end())
+					_results.push_back({ ip, port });
+			}
+			else {
+				auto client = reinterpret_cast<CNamedPipeClient*>(m_instComm->namedPipe.get());
+				if (client != nullptr) {
+					client->SendMessageAsync(ip + ":" + port);
+					std::cout << "Sent message " << ip << " to main host " << std::endl;
+				}
+			}
+		}
+	}
+}
+
 
 int (WINAPI* precv)(SOCKET socket, char* buffer, int length, int flags) = NULL;
 int (WINAPI* psend)(SOCKET socket, const char* buffer, int length, int flags) = NULL;
@@ -176,8 +220,13 @@ int sendto_hk(SOCKET s, const char* buf, int len, int flags, const struct sockad
 	CStunIntercept::Get().TryReadStunBuffer((char*)buf, len);
 	return sendto_o(s, buf, len, flags, to, tolen);
 }
-void CStunIntercept::Start() {
+CStunIntercept::CStunIntercept(std::shared_ptr<CStunChecker> stunChecker, std::shared_ptr<CSharedComm> sharedCom) : m_StunChecker(stunChecker), m_instComm(sharedCom)
+{
 
+	
+}
+void CStunIntercept::Start() {
+	
 	_instance = this;
 	if (MH_Initialize() != MH_OK) {
 		return;
@@ -198,6 +247,8 @@ void CStunIntercept::Start() {
 
 	std::cout << "hook initialized succefully!";
 
+
+
 }
 
 
@@ -211,4 +262,34 @@ void CStunIntercept::Stop()
 void CStunIntercept::Clear() {
 	std::lock_guard<std::recursive_mutex> lock(m_Mutex);
 	_results.clear();
+}
+std::vector<std::string> split(std::string s, std::string delimiter) {
+	size_t pos_start = 0, pos_end, delim_len = delimiter.length();
+	std::string token;
+	std::vector<std::string> res;
+
+	while ((pos_end = s.find(delimiter, pos_start)) != std::string::npos) {
+		token = s.substr(pos_start, pos_end - pos_start);
+		pos_start = pos_end + delim_len;
+		res.push_back(token);
+	}
+
+	res.push_back(s.substr(pos_start));
+	return res;
+}
+
+void CStunIntercept::ReceiveMessage(std::string msg)
+{
+	std::lock_guard<std::recursive_mutex> lock(m_Mutex);
+	size_t pos = 0;
+
+	auto items = split(msg, ":");
+	if (items.size() != 2) {
+		return;
+	}
+
+	auto itx = std::find_if(_results.begin(), _results.end(), [items](CInterceptResult& res) { return res.Ip == items.at(0) && res.Port == items.at(1); });
+	if (itx == _results.end())
+		_results.push_back({ items.at(0), items.at(1)});
+	std::cout << "CStunIntercept::ReceiveMessage " << msg << std::endl;
 }
