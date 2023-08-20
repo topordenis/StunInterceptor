@@ -3,7 +3,7 @@
 
 #include "CNamedPipeClient.h"
 #include <thread>
-
+#include <sstream>
 
 bool CNamedPipeClient::Start() {
     std::cout << "Creating named pipe client " << std::endl;
@@ -19,9 +19,18 @@ bool CNamedPipeClient::Start() {
         );
 
         if (pipeHandle_ == INVALID_HANDLE_VALUE) {
-            std::cerr << "Failed to connect to named pipe(" << pipeName_ << "). Error code : " << GetLastError() << std::endl;
+
+            std::stringstream s;
+            s << "Failed to connect to named pipe(" << pipeName_ << "). Error code : " << GetLastError() << std::endl;
+
+            OutputDebugString(s.str().c_str());
             return false;
         }
+
+        std::stringstream s;
+        s << "Client connect pipeHandle " << pipeHandle_ << std::endl;
+
+        OutputDebugString(s.str().c_str());
 
        // std::cout << "Connected to the server." << std::endl;
        //std::thread* test = new std::thread([this]() {

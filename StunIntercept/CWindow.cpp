@@ -8,6 +8,7 @@
 #include <iostream>
 #include "CGui.h"
 #include "Helpers.h"
+#include <sstream>
 extern IMGUI_IMPL_API LRESULT ImGui_ImplWin32_WndProcHandler(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam);
 
 LRESULT WINAPI WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
@@ -203,7 +204,7 @@ void CWindow::Shutdown() {
 void CWindow::RunPool() {
     m_bRunning = true;
     bool m_bVisible = false;
-    bool m_bStickToPraentUpdate = false;
+    bool m_bLastParentVisibility = false;
     SetWindowLong(windowHwnd, GWL_EXSTYLE,
         GetWindowLong(windowHwnd, GWL_EXSTYLE) & ~WS_EX_APPWINDOW & ~WS_EX_TOOLWINDOW);
     while (m_bRunning)
@@ -212,7 +213,7 @@ void CWindow::RunPool() {
         static bool bClicked = false;
         static bool bPrevMenuState = m_bVisible;
 
-        if ((GetAsyncKeyState(VK_INSERT) & 0x8000))
+      if ((GetAsyncKeyState(VK_INSERT) & 0x8000))
         {
             bClicked = false;
             bDown = true;
@@ -228,10 +229,14 @@ void CWindow::RunPool() {
             bDown = false;
         }
 
-        if (bClicked)
+        if (bClicked )
         {
-            m_bVisible = !m_bVisible;
-            ShowWindow(windowHwnd, m_bVisible ? SW_SHOW : SW_HIDE);
+            auto parentWindow = GetParent(windowHwnd);
+            if (parentWindow != nullptr && IsWindowVisible(parentWindow) == TRUE && IsIconic(parentWindow) == FALSE) {
+                m_bVisible = !m_bVisible;
+                ShowWindow(windowHwnd, m_bVisible ? SW_HIDE : SW_SHOW);
+            }
+          
         }
 
 
@@ -239,13 +244,13 @@ void CWindow::RunPool() {
         if (m_bVisible) {
             auto parentWindow = GetParent(windowHwnd);
             if (parentWindow != nullptr) {
-                // std::cout << "Is parent visible " << (IsWindowVisible(parentWindow) ? "DA" : "NU") << std::endl;
-                if (m_bStickToPraentUpdate != (bool)IsWindowVisible(parentWindow)) {
+                std::stringstream ss;
+                OutputDebugString(ss.str().c_str());
+                if (m_bLastParentVisibility != (bool)IsWindowVisible(parentWindow)) 
+                    ShowWindow(windowHwnd, m_bLastParentVisibility ? SW_HIDE : SW_SHOW);
+                
 
-                    ShowWindow(windowHwnd, m_bStickToPraentUpdate ? SW_HIDE : SW_SHOW);
-                }
-
-                m_bStickToPraentUpdate = (bool)IsWindowVisible(parentWindow);
+                m_bLastParentVisibility = (bool)IsWindowVisible(parentWindow);
             }
         }
 

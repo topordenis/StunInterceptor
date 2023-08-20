@@ -20,12 +20,12 @@ CApp::~CApp() {
 }
 void CApp::Run() {
 
-#ifdef  DEBUG
-    CreateConsole();
-#endif //  DEBUG
+//#ifdef  _DEBUG
+//    CreateConsole();
+//#endif //  DEBUG
     
   
-  
+
 
     _mSharedComm = std::make_shared<CSharedComm>();
     
@@ -36,17 +36,20 @@ void CApp::Run() {
 
     auto cristos = _mInterceptor.get();
 
-    if (!bIsClient)
+    if (_mSharedComm->m_bServer)
          _mSharedComm->BindReceiveMessage(std::bind(&CStunIntercept::ReceiveMessage, _mInterceptor.get(), std::placeholders::_1));
     _mInterceptor->Start();
     
-    if (!bIsClient) /*run as server*/
+    if (_mSharedComm->m_bServer) /*run as server*/
     {
+        OutputDebugString("Started as host server!!!");
         _mWindow = std::make_shared<CWindow>(_mSharedComm, _mStunChecker, _mInterceptor);
         _mWindow->Initialize();
         _mWindow->RunPool();
     }
     else {
+        OutputDebugString("Started as client!!!");
+        std::cout << "started as client " << std::endl;
         while (true) {
             Sleep(1000);
         }

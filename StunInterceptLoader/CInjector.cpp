@@ -13,6 +13,7 @@ CInjectResult CInjector::Inject(const char* procName, const char* dllName)
 	if (processsIdList != std::nullopt) {
 		for (auto& id : processsIdList.value())
 		{
+			
 			res = Inject(id, dllName);
 			if (!res.status) break;
 		}
@@ -51,6 +52,48 @@ CInjectResult CInjector::Inject(DWORD processID, const char* relativeDllName) {
 	CreateRemoteThread(Proc, NULL, NULL, (LPTHREAD_START_ROUTINE)LoadLib, (LPVOID)RemoteString, NULL, NULL);
 
 	CloseHandle(Proc);
+
+	static bool Run = false;
+
+
+	if (!Run) { 
+		//wait until host started
+		while (true) {
+			LPCSTR pipeName = "\\\\.\\pipe\\stunintercept"; // Replace with your pipe name
+			static int try_count = 0;
+			HANDLE pipeHandle = CreateFile(
+				pipeName,
+				GENERIC_READ | GENERIC_WRITE,
+				0,
+				NULL,
+				OPEN_EXISTING,
+				0,
+				NULL
+			);
+
+			if (pipeHandle != INVALID_HANDLE_VALUE) {
+				std::cout << "Named pipe exists." << std::endl;
+				CloseHandle(pipeHandle);
+				break;
+			}
+			else {
+				DWORD error = GetLastError();
+				if (error == ERROR_FILE_NOT_FOUND) {
+					std::cout << "Named pipe does not exist." << std::endl;
+				}
+				else {
+					std::cerr << "Error checking named pipe: " << error << std::endl;
+				}
+				try_count++;
+				Sleep(100);
+			}
+			if (try_count > 15)
+				break;
+		}
+	}
+
+	Run = true;
+	
 	return { "Succesfully injected.", true };
 }
 std::optional<std::vector<DWORD>> CInjector::GetTargetThreadIDFromProcName(const char* ProcName) {

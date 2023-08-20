@@ -14,7 +14,7 @@ void CSharedComm::ThreadMain() {
 
 	std::cout << "There are no servers active on this process which means we are the main server " << std::endl;
 
-	auto server = std::make_shared<CNamedPipeServer>("\\\\.\\pipe\\detest");
+	auto server = std::make_shared<CNamedPipeServer>("\\\\.\\pipe\\stunintercept");
 	server->m_FuncReceive = std::move(m_ReceiveFunc);
 
 
@@ -29,18 +29,20 @@ void CSharedComm::ThreadMain() {
 }
 bool CSharedComm::TryAsClient() {
 
-	{
-		auto client = std::make_shared< CNamedPipeClient>("\\\\.\\pipe\\detest");
+	
+		auto client = std::make_shared< CNamedPipeClient>("\\\\.\\pipe\\stunintercept");
 		if (client->Start()) {
+			m_bServer = false;
 			std::cout << "We connected succefully to the pipe. That means we are no the host" << std::endl;
+			OutputDebugString("We connected succefully to the pipe. That means we are no the host!");
 			namedPipe = std::move(std::reinterpret_pointer_cast<CNamedPipe>(client));
 			return true;
 		}
-		client.reset();
-	}
-	m_bServer = true;
-	conThread = new std::thread(&CSharedComm::ThreadMain, this);
-	conThread->detach();
+		else {
+			m_bServer = true;
+			conThread = new std::thread(&CSharedComm::ThreadMain, this);
+			conThread->detach();
+		}
 	return false;
 }
 void CSharedComm::BindReceiveMessage(std::function<void(std::string msg)> func) {

@@ -2,7 +2,7 @@
 
 
 #include <vector>
-
+#include <mutex>
 
 #include "CInjector.h"
 class CGui {
@@ -13,7 +13,7 @@ public:
 	void InitStyle();
 
 	void Shutdown();
-
+	std::mutex m_Mtx;
 	std::vector< CInjectResult> m_results;
 	CGui();
 };

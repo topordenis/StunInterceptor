@@ -12,6 +12,7 @@
 #include <vector>
 #include <mutex>
 #include "CInjector.h"
+#include <future>
 
 #define VERSION "v1.0.2"
 
@@ -30,18 +31,21 @@ void CGui::Render() {
     static std::string statusMessage = "";
     static bool Good = false;
 
-    const char* items[] = { "Telegram", "Signal", "Session" };
+    static const char* items[] = { "Telegram", "Signal", "Session" };
     static int item_current = 0;
 
     
   
 
     ImGui::Combo("Target", &item_current, items, IM_ARRAYSIZE(items));
-    for (auto& res : m_results) {
-        ImGui::PushStyleColor(ImGuiCol_Text, res.status ? IM_COL32(80, 200, 120, 255) : IM_COL32(128, 128, 255, 255));
+    {
+        std::lock_guard guard(m_Mtx);
+        for (auto& res : m_results) {
+            ImGui::PushStyleColor(ImGuiCol_Text, res.status ? IM_COL32(80, 200, 120, 255) : IM_COL32(128, 128, 255, 255));
 
-        ImGui::TextWrapped( res.msg.c_str());
-        ImGui::PopStyleColor();
+            ImGui::TextWrapped(res.msg.c_str());
+            ImGui::PopStyleColor();
+        }
     }
     auto winSize = ImGui::GetWindowSize();
     ImGui::SetCursorPos(ImVec2{ winSize.x - btnSize.x * 2 - 20, winSize.y - btnSize.y - 10 });
@@ -53,11 +57,17 @@ void CGui::Render() {
     if (ImGui::Button("Load", btnSize))
     {
         m_results.clear();
-        CInjector injector;
-        std::string target(items[item_current]);
-        target.append(".exe");
 
-        m_results.push_back(injector.Inject(target.c_str(), "STUNIntercept.dll"));
+        std::async(std::launch::async, [this] {
+            CInjector injector;
+            std::string target(items[item_current]);
+            target.append(".exe");
+
+            std::lock_guard guard(m_Mtx);
+            m_results.push_back(injector.Inject(target.c_str(), "STUNIntercept.dll"));
+            });
+       
+        
        
     }
     ImGui::SameLine();

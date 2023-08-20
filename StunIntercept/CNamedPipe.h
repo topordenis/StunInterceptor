@@ -10,6 +10,6 @@ public:
 public:
     std::string pipeName_;
     OVERLAPPED overlapped_ = {};
-    HANDLE pipeHandle_;
+    HANDLE pipeHandle_{ INVALID_HANDLE_VALUE };
 };
 
